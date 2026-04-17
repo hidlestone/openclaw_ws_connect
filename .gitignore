@@ -34,4 +34,4 @@ os_del.cmd
 /.history/
 /svn clear.bat
 
-device-key.pem
+/device_key.pem
