@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket 连接管理器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section-title {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-connected {
+            background: #4caf50;
+        }
+
+        .status-disconnected {
+            background: #f44336;
+        }
+
+        .status-connecting {
+            background: #ff9800;
+        }
+
+        .message-box {
+            background: #f9f9f9;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 4px;
+        }
+
+        .message.sent {
+            background: #e3f2fd;
+            border-left: 3px solid #2196f3;
+        }
+
+        .message.received {
+            background: #e8f5e9;
+            border-left: 3px solid #4caf50;
+        }
+
+        .message.error {
+            background: #ffebee;
+            border-left: 3px solid #f44336;
+        }
+
+        .message-time {
+            color: #999;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .message-content {
+            word-break: break-all;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>WebSocket 连接管理器</h1>
+        <p>配置和管理您的 WebSocket 连接</p>
+    </div>
+    <div class="content">
+        <div class="section">
+            <h2 class="section-title">连接配置</h2>
+            <div class="form-group">
+                <label>WebSocket URL</label>
+                <input type="text" id="wsUrl" placeholder="wss://example.com" value="">
+            </div>
+            <div class="form-group">
+                <label>Token</label>
+                <input type="text" id="token" placeholder="Your token" value="">
+            </div>
+            <button class="btn btn-primary" id="connectBtn" onclick="toggleConnection()">连接</button>
+            <span id="connectionStatus" class="status-indicator status-disconnected"></span>
+            <span id="statusText">未连接</span>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">发送消息</h2>
+            <div class="form-group">
+                <label>消息内容 (JSON)</label>
+                <input type="text" id="messageInput" placeholder='{"type": "req", "method": "example"}'>
+            </div>
+            <button class="btn btn-primary" onclick="sendMessage()">发送</button>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">消息记录</h2>
+            <div class="message-box" id="messageBox"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let isConnecting = false; // 跟踪是否正在连接中
+
+    async function connectWebSocket() {
+        const wsUrl = document.getElementById('wsUrl').value;
+        const token = document.getElementById('token').value;
+
+        if (!wsUrl) {
+            addMessage('error', '请输入 WebSocket URL');
+            return;
+        }
+
+        isConnecting = true; // 标记开始连接
+        updateStatus('connecting', '连接中...');
+        updateConnectButton(true);
+
+        try {
+            // 通过API更新服务器端配置
+            const response = await fetch('/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({wsUrl, token})
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                addMessage('sent', '配置已更新: ' + JSON.stringify(result.config, null, 2));
+            }
+        } catch (error) {
+            addMessage('error', '配置更新失败: ' + error.message);
+            updateStatus('disconnected', '连接失败');
+            isConnecting = false;
+            updateConnectButton(false);
+        }
+    }
+
+    async function disconnectWebSocket() {
+        try {
+            const response = await fetch('/disconnect', {method: 'POST'});
+            const result = await response.json();
+            addMessage('sent', '断开连接: ' + result.message);
+        } catch (error) {
+            addMessage('error', '断开连接失败: ' + error.message);
+        }
+    }
+
+    async function toggleConnection() {
+        const statusResponse = await fetch('/status');
+        const statusResult = await statusResponse.json();
+
+        if (statusResult.connectionStatus === 'connected') {
+            // 已连接，则断开连接
+            await disconnectWebSocket();
+        } else {
+            // 未连接，则进行连接
+            await connectWebSocket();
+        }
+    }
+
+    function updateConnectButton(isConnecting) {
+        const connectBtn = document.getElementById('connectBtn');
+        if (isConnecting) {
+            connectBtn.disabled = true;
+            connectBtn.textContent = '连接中...';
+        } else {
+            connectBtn.disabled = false;
+        }
+    }
+
+    async function sendMessage() {
+        const messageInput = document.getElementById('messageInput');
+        const messageText = messageInput.value.trim();
+
+        if (!messageText) {
+            addMessage('error', '请输入消息内容');
+            return;
+        }
+
+        try {
+            const message = JSON.parse(messageText);
+
+            // 通过服务器端API发送消息
+            const response = await fetch('/send', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(message)
+            });
+
+            const result = await response.json();
+
+            if (result.status === 'success') {
+                addMessage('sent', JSON.stringify(message, null, 2));
+            } else {
+                addMessage('error', '发送失败: ' + JSON.stringify(result.error));
+            }
+        } catch (e) {
+            addMessage('error', '无效的 JSON 格式或发送失败: ' + e.message);
+        }
+    }
+
+    function addMessage(type, content) {
+        const messageBox = document.getElementById('messageBox');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${type}`;
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = new Date().toLocaleTimeString();
+
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'message-content';
+        contentDiv.textContent = content;
+
+        messageDiv.appendChild(timeDiv);
+        messageDiv.appendChild(contentDiv);
+        messageBox.appendChild(messageDiv);
+
+        messageBox.scrollTop = messageBox.scrollHeight;
+    }
+
+    function updateStatus(status, text) {
+        const indicator = document.getElementById('connectionStatus');
+        const statusText = document.getElementById('statusText');
+
+        indicator.className = `status-indicator status-${status}`;
+        statusText.textContent = text;
+    }
+
+    // 定期获取消息历史记录和连接状态
+    let lastMessageCount = 0;
+    setInterval(async function () {
+        try {
+            // 获取连接状态
+            const statusResponse = await fetch('/status');
+            const statusResult = await statusResponse.json();
+
+            // 根据服务器返回的 connectionStatus 更新前端显示
+            if (statusResult.connectionStatus === 'connected') {
+                isConnecting = false; // 连接成功，清除连接中标志
+                updateStatus('connected', '已连接');
+                updateConnectButton(false);
+                // 更新按钮文本为"断开"
+                const connectBtn = document.getElementById('connectBtn');
+                connectBtn.textContent = '断开';
+            } else if (statusResult.connectionStatus === 'disconnected') {
+                // 只有不在连接过程中才更新为未连接状态
+                if (!isConnecting) {
+                    updateStatus('disconnected', '未连接');
+                    updateConnectButton(false);
+                    // 更新按钮文本为"连接"
+                    const connectBtn = document.getElementById('connectBtn');
+                    connectBtn.textContent = '连接';
+                }
+            }
+
+            // 获取消息历史
+            const response = await fetch('/messages?limit=50');
+            const result = await response.json();
+
+            // 只显示新消息
+            if (result.messages.length > lastMessageCount) {
+                const newMessages = result.messages.slice(lastMessageCount);
+                newMessages.forEach(msg => {
+                    addMessage(msg.type, JSON.stringify(msg.content, null, 2));
+                });
+                lastMessageCount = result.messages.length;
+            }
+        } catch (error) {
+            console.error('获取状态或消息历史失败:', error);
+        }
+    }, 2000);
+
+    // 页面加载时不自动连接，等待用户点击连接按钮
+</script>
+</body>
+</html>
